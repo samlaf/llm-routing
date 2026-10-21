@@ -1,12 +1,12 @@
-"""The router interface, baselines, and an oracle ceiling."""
+"""The router interface, baselines, the learning router, and routers that follow a plan."""
 
+import random
 from typing import Protocol
 
 import numpy as np
 from sklearn.cluster import KMeans
 
 from routing.budget import Budget
-from routing.models import COSTS, SimulatedModel
 from routing.tasks import Task
 
 
@@ -16,18 +16,58 @@ class Router(Protocol):
     def update(self, task: Task, model: str, passed: bool) -> None: ...
 
 
-class FixedRouter:
-    """Always picks one model, and steps down to cheaper ones once it can't afford it."""
+def step_down(model: str, costs: dict[str, float], budget: Budget) -> str:
+    """`model` if the budget allows it, else the dearest cheaper model it allows."""
+    ladder = sorted(
+        (name for name, cost in costs.items() if cost <= costs[model]),
+        key=lambda name: -costs[name],
+    )
+    return next(m for m in ladder if budget.can_afford(m))
 
-    def __init__(self, model: str, costs: dict[str, float] = COSTS):
-        self.ladder = sorted(
-            (name for name, cost in costs.items() if cost <= costs[model]),
-            key=lambda name: -costs[name],
-        )
+
+class FixedRouter:
+    """Always picks one model, stepping down once the budget can't afford it."""
+
+    def __init__(self, model: str, costs: dict[str, float]):
+        self.model = model
         self.costs = costs
 
     def choose(self, task: Task, budget: Budget) -> str:
-        return next(m for m in self.ladder if budget.can_afford(self.costs[m]))
+        return step_down(self.model, self.costs, budget)
+
+    def update(self, task: Task, model: str, passed: bool) -> None:
+        pass
+
+
+class MixRouter:
+    """Draws each task's model from fixed shares, ignoring the task itself."""
+
+    def __init__(self, shares: dict[str, float], costs: dict[str, float], seed: int):
+        self.shares = shares
+        self.costs = costs
+        self.rng = random.Random(seed)
+
+    def choose(self, task: Task, budget: Budget) -> str:
+        model = self.rng.choices(list(self.shares), weights=list(self.shares.values()))[0]
+        return step_down(model, self.costs, budget)
+
+    def update(self, task: Task, model: str, passed: bool) -> None:
+        pass
+
+
+class PlanRouter:
+    """Follows a plan made in advance, stepping down when costs run over.
+
+    The oracles make plans from knowledge no deployed router has, so these are
+    reference levels to measure against, not routers we could deploy.
+    """
+
+    def __init__(self, plan: dict[str, str], costs: dict[str, float]):
+        self.plan = plan
+        self.costs = costs
+
+    def choose(self, task: Task, budget: Budget) -> str:
+        return step_down(self.plan[task.id], self.costs, budget)
 
     def update(self, task: Task, model: str, passed: bool) -> None:
         pass
@@ -37,18 +77,18 @@ class ClusterRouter:
     """Learns pass rates per (topic, model) and prices each dollar at λ.
 
     - Memory: k-means topics over the embeddings, with a Beta scoreboard per
-      (topic, model), shrunk toward that model's global pass rate.
+      (topic, model), shrunk toward that model's overall pass rate.
     - Exploration: Thompson sampling from those Betas.
     - Allocator: argmax p̃ − λ·cost, with λ paced so spend tracks the budget.
 
     Topics are fitted on the text of every task up front. That uses future
-    questions' text, never their answers.
+    tasks' text, never their results.
     """
 
     def __init__(
         self,
         features: dict[str, np.ndarray],
-        costs: dict[str, float] = COSTS,
+        costs: dict[str, float],
         n_topics: int = 8,
         prior_strength: float = 2.0,
         lam: float = 0.5,
@@ -67,78 +107,25 @@ class ClusterRouter:
         self.prior_strength = prior_strength
         self.lam = lam
         self.step = step
-        self.target: float | None = None
+        self.per_task: float | None = None
         self.rng = np.random.default_rng(seed)
 
     def choose(self, task: Task, budget: Budget) -> str:
-        if self.target is None:
-            self.target = budget.dollars / budget.tasks_left
+        if self.per_task is None:
+            self.per_task = budget.dollars / budget.tasks_left
+        # Costs in units of the budget per task, so λ is unitless.
+        cost = self.cost / self.per_task
         k = self.topic[task.id]
         overall = (1 + self.passes.sum(0)) / (2 + self.tries.sum(0))
         alpha = self.prior_strength * overall + self.passes[k]
         beta = self.prior_strength * (1 - overall) + self.tries[k] - self.passes[k]
-        score = self.rng.beta(alpha, beta) - self.lam * self.cost
-        score[[not budget.can_afford(c) for c in self.cost]] = -np.inf
+        score = self.rng.beta(alpha, beta) - self.lam * cost
+        score[[not budget.can_afford(m) for m in self.models]] = -np.inf
         i = int(np.argmax(score))
-        self.lam = max(0.0, self.lam + self.step * (self.cost[i] - self.target))
+        self.lam = max(0.0, self.lam + self.step * (cost[i] - 1))
         return self.models[i]
 
     def update(self, task: Task, model: str, passed: bool) -> None:
         k, i = self.topic[task.id], self.models.index(model)
         self.tries[k, i] += 1
         self.passes[k, i] += passed
-
-
-class OracleRouter:
-    """Follows the best offline plan for the true pass rates.
-
-    Only the simulator knows those rates, so this is a ceiling to measure
-    regret against, not a router we could deploy.
-    """
-
-    def __init__(self, plan: dict[str, str]):
-        self.plan = plan
-
-    def choose(self, task: Task, budget: Budget) -> str:
-        return self.plan[task.id]
-
-    def update(self, task: Task, model: str, passed: bool) -> None:
-        pass
-
-
-def oracle_plan(
-    tasks: list[Task], models: dict[str, SimulatedModel], dollars: float
-) -> dict[str, str]:
-    """Pick one model per task to maximise expected passes within budget.
-
-    Exact dynamic program over budget measured in units of the cheapest
-    model's cost.
-    """
-    unit = min(m.cost for m in models.values())
-    units = {name: round(m.cost / unit) for name, m in models.items()}
-    capacity = round(dollars / unit)
-    n = len(tasks)
-
-    # best[i][b]: max expected passes on tasks[i:] with b units left.
-    NEG = float("-inf")
-    best = [[NEG] * (capacity + 1) for _ in range(n)] + [[0.0] * (capacity + 1)]
-    choice: list[list[str | None]] = [[None] * (capacity + 1) for _ in range(n)]
-    for i in range(n - 1, -1, -1):
-        for b in range(capacity + 1):
-            for name, model in models.items():
-                left = b - units[name]
-                if left < 0 or best[i + 1][left] == NEG:
-                    continue
-                value = model.p_correct(tasks[i].id) + best[i + 1][left]
-                if value > best[i][b]:
-                    best[i][b] = value
-                    choice[i][b] = name
-
-    plan, b = {}, capacity
-    for i, task in enumerate(tasks):
-        name = choice[i][b]
-        if name is None:
-            raise ValueError("budget too small to give every task a call")
-        plan[task.id] = name
-        b -= units[name]
-    return plan

@@ -21,19 +21,18 @@ def run_episode(
     models: Mapping[str, Model],
     router: Router,
     verifier: Verifier,
-    dollars: float,
+    budget: Budget,
 ) -> Result:
-    budget = Budget(dollars, len(tasks), min(m.cost for m in models.values()))
     result = Result()
     for task in tasks:
         name = router.choose(task, budget)
-        model = models[name]
-        budget.spend(model.cost)
-        passed = verifier.check(task.id, model.answer(task))
+        answer = models[name].answer(task)
+        budget.spend(name, answer.cost)
+        passed = verifier.check(task.id, answer.code)
         router.update(task, name, passed)
 
         result.passed += passed
-        result.spent += model.cost
+        result.spent += answer.cost
         result.calls[name] += 1
         result.log.append((task.id, name, passed))
     return result

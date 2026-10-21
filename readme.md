@@ -28,6 +28,8 @@ same total budget
 ## Docs
 
 - [math-model.md](math-model.md): the model, theory and architecture.
-- [part1.md](part1.md): Part 1 implementation, simulation and results.
+- [part1.md](part1.md): Part 1 on VerilogEval: problem, hypothesis, method, status.
+- [part2.md](part2.md): Part 2 on RTL: grader vs checks, hypotheses H1–H3, open questions.
+- [references.md](references.md): every source, with what it says and why it matters here.
 
 Run: `uv run main.py`. Test: `uv run pytest`.

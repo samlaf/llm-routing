@@ -1,104 +1,109 @@
-"""Models a router can call, and a simulator that stands in for real ones."""
+"""Models a router can call, replayed from attempts recorded with real models.
 
+A replayed call returns one attempt recorded for that problem, drawn at random,
+so it costs and scores what a live call did, without making one.
+"""
+
+import json
 import random
+from collections import defaultdict
 from dataclasses import dataclass
+from pathlib import Path
+from statistics import mean
 from typing import Protocol
 
-import numpy as np
-from sklearn.cluster import KMeans
-
+from routing import llm
 from routing.tasks import Task
 
-COSTS = {"small": 0.25, "medium": 0.5, "frontier": 1.0}
+ATTEMPTS = Path(__file__).parent.parent / "data" / "attempts.jsonl"
 
-# Each tier has a different best model, so routing pays off only if the
-# router can tell tiers apart:
-# - easy: small is nearly as good as frontier.
-# - medium: medium closes most of the gap.
-# - hard: only frontier does well.
-# - hopeless: nothing beats a coin flip by much, so frontier is wasted.
-PASS_RATES = {
-    "easy": {"small": 0.95, "medium": 0.97, "frontier": 0.98},
-    "medium": {"small": 0.60, "medium": 0.92, "frontier": 0.95},
-    "hard": {"small": 0.52, "medium": 0.60, "frontier": 0.92},
-    "hopeless": {"small": 0.50, "medium": 0.52, "frontier": 0.55},
-}
-# Sending every tier to its best model costs $51.25 per 100 tasks, just
-# over the $50 budget, so the router must also trade tiers off.
-TIER_SHARES = {"easy": 0.30, "medium": 0.30, "hard": 0.25, "hopeless": 0.15}
+
+@dataclass(frozen=True)
+class Answer:
+    code: str
+    cost: float
+
+
+@dataclass(frozen=True)
+class Attempt:
+    task: str
+    model: str
+    code: str
+    passed: bool
+    cost: float
+    input_tokens: int = 0
 
 
 class Model(Protocol):
     name: str
-    cost: float
 
-    def answer(self, task: Task) -> bool: ...
+    def answer(self, task: Task) -> Answer: ...
+
+
+def load_attempts(path: Path = ATTEMPTS) -> list[Attempt]:
+    attempts = []
+    for line in path.read_text().splitlines():
+        r = json.loads(line)
+        if r["output_tokens"] > llm.MAX_OUTPUT_TOKENS:
+            # Recorded without a cap. With one, the reply would have been cut
+            # off: no complete design, at the capped cost.
+            cost = llm.cost(r["model"], r["input_tokens"], llm.MAX_OUTPUT_TOKENS)
+            attempts.append(
+                Attempt(r["task"], r["model"], "", False, cost, r["input_tokens"])
+            )
+        else:
+            attempts.append(
+                Attempt(
+                    r["task"], r["model"], r["code"], r["passed"], r["cost"], r["input_tokens"]
+                )
+            )
+    return attempts
+
+
+def cost_caps(attempts: list[Attempt]) -> dict[str, float]:
+    """The most one call to each model can cost, with output capped."""
+    longest = max(a.input_tokens for a in attempts)
+    return {
+        m: llm.cost(m, longest, llm.MAX_OUTPUT_TOKENS)
+        for m in by_model_and_task(attempts)
+    }
+
+
+def by_model_and_task(attempts: list[Attempt]) -> dict[str, dict[str, list[Attempt]]]:
+    table: dict[str, dict[str, list[Attempt]]] = defaultdict(lambda: defaultdict(list))
+    for a in attempts:
+        table[a.model][a.task].append(a)
+    return {m: dict(tasks) for m, tasks in table.items()}
+
+
+def pass_rates(attempts: list[Attempt]) -> dict[str, dict[str, float]]:
+    return {
+        m: {t: mean(a.passed for a in tries) for t, tries in tasks.items()}
+        for m, tasks in by_model_and_task(attempts).items()
+    }
+
+
+def mean_costs(attempts: list[Attempt]) -> dict[str, dict[str, float]]:
+    return {
+        m: {t: mean(a.cost for a in tries) for t, tries in tasks.items()}
+        for m, tasks in by_model_and_task(attempts).items()
+    }
 
 
 @dataclass
-class SimulatedModel:
+class ReplayModel:
     name: str
-    cost: float
-    pass_rate: dict[str, float]
-    truth: dict[str, bool]
+    attempts: dict[str, list[Attempt]]
     rng: random.Random
 
-    def p_correct(self, task_id: str) -> float:
-        return self.pass_rate[task_id]
-
-    def answer(self, task: Task) -> bool:
-        truth = self.truth[task.id]
-        return truth if self.rng.random() < self.p_correct(task.id) else not truth
+    def answer(self, task: Task) -> Answer:
+        attempt = self.rng.choice(self.attempts[task.id])
+        return Answer(attempt.code, attempt.cost)
 
 
-def hidden_tiers(
-    tasks: list[Task],
-    features: dict[str, np.ndarray],
-    rng: random.Random,
-    n_topics: int = 10,
-    topic_weight: float = 0.5,
-) -> dict[str, str]:
-    """Assign each task a tier, in the proportions of TIER_SHARES.
-
-    Tasks are clustered into topics by embedding, and each topic gets a
-    random difficulty. Tasks are ranked by a score that is part topic
-    difficulty, part noise. The topic part is what a router can learn from
-    the embeddings. The noise part is what no router can see.
-    """
-    vectors = np.stack([features[t.id] for t in tasks])
-    n_topics = min(n_topics, len(tasks))
-    topics = KMeans(n_topics, random_state=rng.getrandbits(32)).fit_predict(vectors)
-    topic_difficulty = [rng.random() for _ in range(n_topics)]
-    score = {
-        t.id: topic_weight * topic_difficulty[k] + (1 - topic_weight) * rng.random()
-        for t, k in zip(tasks, topics)
-    }
-    ranked = sorted(tasks, key=lambda t: score[t.id])
-
-    tiers, start = {}, 0.0
-    for tier, share in TIER_SHARES.items():
-        end = start + share * len(tasks)
-        for t in ranked[round(start) : round(end)]:
-            tiers[t.id] = tier
-        start = end
-    return tiers
-
-
-def simulated_models(
-    tasks: list[Task],
-    truth: dict[str, bool],
-    features: dict[str, np.ndarray],
-    seed: int,
-) -> dict[str, SimulatedModel]:
+def replay_models(attempts: list[Attempt], seed: int) -> dict[str, ReplayModel]:
     rng = random.Random(seed)
-    tiers = hidden_tiers(tasks, features, rng)
     return {
-        name: SimulatedModel(
-            name,
-            COSTS[name],
-            {task_id: PASS_RATES[tier][name] for task_id, tier in tiers.items()},
-            truth,
-            random.Random(rng.getrandbits(64)),
-        )
-        for name in COSTS
+        m: ReplayModel(m, tasks, random.Random(rng.getrandbits(64)))
+        for m, tasks in by_model_and_task(attempts).items()
     }

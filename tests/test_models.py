@@ -1,58 +1,63 @@
-import random
-from collections import Counter
+import json
 
-import numpy as np
+import pytest
 
-from routing.models import TIER_SHARES, hidden_tiers, simulated_models
-from routing.tasks import Task, Verifier
+from routing import llm
+from routing.models import (
+    Attempt,
+    cost_caps,
+    load_attempts,
+    mean_costs,
+    pass_rates,
+    replay_models,
+)
+from routing.tasks import Task
 
-
-def make_tasks(n: int, centers: int = 5):
-    tasks = [Task(f"t{i}", "q", "p") for i in range(n)]
-    truth = {t.id: i % 2 == 0 for i, t in enumerate(tasks)}
-    rng = np.random.default_rng(0)
-    means = rng.normal(scale=10, size=(centers, 8))
-    features = {t.id: means[i % centers] + rng.normal(size=8) for i, t in enumerate(tasks)}
-    return tasks, truth, features
-
-
-def test_pass_rate_never_below_a_coin_flip():
-    tasks, truth, features = make_tasks(50)
-    models = simulated_models(tasks, truth, features, seed=0)
-    for model in models.values():
-        assert all(0.5 <= model.p_correct(t.id) <= 1.0 for t in tasks)
+ATTEMPTS = [
+    Attempt("t0", "small", "a", True, 0.1),
+    Attempt("t0", "small", "b", False, 0.3),
+    Attempt("t0", "frontier", "c", True, 1.0),
+]
 
 
-def test_tiers_follow_shares():
-    tasks, _, features = make_tasks(100)
-    counts = Counter(hidden_tiers(tasks, features, random.Random(0)).values())
-    assert counts == {tier: round(share * 100) for tier, share in TIER_SHARES.items()}
+def test_tables_average_over_attempts():
+    assert pass_rates(ATTEMPTS)["small"]["t0"] == 0.5
+    assert mean_costs(ATTEMPTS)["small"]["t0"] == pytest.approx(0.2)
 
 
-def test_without_noise_easy_and_hopeless_never_share_a_topic():
-    tasks, _, features = make_tasks(100, centers=2)
-    tiers = hidden_tiers(tasks, features, random.Random(0), n_topics=2, topic_weight=1.0)
-    topic_of = {t.id: i % 2 for i, t in enumerate(tasks)}
-    topics = {
-        tier: {topic_of[tid] for tid, x in tiers.items() if x == tier}
-        for tier in ("easy", "hopeless")
-    }
-    assert topics["easy"].isdisjoint(topics["hopeless"])
+def test_replay_answers_with_a_recorded_attempt():
+    model = replay_models(ATTEMPTS, seed=0)["small"]
+    answers = {model.answer(Task("t0", "spec")) for _ in range(50)}
+    assert {a.code for a in answers} == {"a", "b"}
+    assert {(a.code, a.cost) for a in answers} == {("a", 0.1), ("b", 0.3)}
 
 
-def test_bigger_models_pass_more_often():
-    tasks, truth, features = make_tasks(50)
-    models = simulated_models(tasks, truth, features, seed=0)
-    for t in tasks:
-        p = {name: m.p_correct(t.id) for name, m in models.items()}
-        assert p["small"] < p["medium"] < p["frontier"]
+def test_replies_over_the_output_cap_fail_at_the_capped_cost(tmp_path):
+    def row(output_tokens):
+        return {
+            "task": "t0",
+            "model": "small",
+            "code": "module TopModule; endmodule\n",
+            "passed": True,
+            "cost": 0.1,
+            "input_tokens": 100,
+            "output_tokens": output_tokens,
+        }
+
+    path = tmp_path / "attempts.jsonl"
+    path.write_text(
+        "\n".join(json.dumps(row(n)) for n in (10, llm.MAX_OUTPUT_TOKENS + 1))
+    )
+    kept, cut = load_attempts(path)
+    assert kept.passed and kept.cost == 0.1
+    assert not cut.passed and cut.code == ""
+    assert cut.cost == pytest.approx(llm.cost("small", 100, llm.MAX_OUTPUT_TOKENS))
+    assert cost_caps([kept, cut])["small"] == pytest.approx(cut.cost)
 
 
-def test_answers_match_p_correct():
-    tasks, truth, features = make_tasks(1)
-    verifier = Verifier(truth)
-    model = simulated_models(tasks, truth, features, seed=0)["medium"]
-    model.rng = random.Random(1)
-    trials = 20_000
-    passed = sum(verifier.check("t0", model.answer(tasks[0])) for _ in range(trials))
-    assert abs(passed / trials - model.p_correct("t0")) < 0.02
+def test_replay_is_deterministic_per_seed():
+    def draws(seed):
+        model = replay_models(ATTEMPTS, seed)["small"]
+        return [model.answer(Task("t0", "spec")).code for _ in range(20)]
+
+    assert draws(1) == draws(1)
