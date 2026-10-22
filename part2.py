@@ -11,7 +11,7 @@ from routing.tasks import Verifier, load_tasks
 from routing.teams import (
     Adjudication,
     Agreement,
-    CompileCascade,
+    CompileCheck,
     Single,
     Strategy,
     run_team_episode,
@@ -23,7 +23,7 @@ STRATEGIES: dict[str, Strategy] = {
     "all-small": Single("small"),
     "all-medium": Single("medium"),
     "all-frontier*": Single("frontier"),
-    "compile-cascade": CompileCascade(),
+    "compile-check": CompileCheck(),
     "agree: small x2": Agreement(("small", "small")),
     "agree: small x3": Agreement(("small", "small", "small")),
     "agree: small+medium": Agreement(("small", "medium")),
@@ -52,7 +52,7 @@ def main() -> None:
 
     print("Replaying recorded calls, verdicts and checks from data/attempts.jsonl,")
     print("data/judgements.jsonl and data/checks.jsonl: no model calls, no simulation.")
-    print("To record new ones: scripts/collect.py, collect_judgements.py, check_attempts.py\n")
+    print("To record new ones: uv run poe record\n")
     print(f"{len(tasks)} problems, ${dollars:.4f} budget, {len(SEEDS)} seeds\n")
     print(f"{'strategy':<24}{'pass rate':>15}{'spent':>9}{'calls':>7}{'rounds':>8}  calls (mean)")
     for name, strategy in STRATEGIES.items():

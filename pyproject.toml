@@ -13,7 +13,28 @@ dependencies = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 
+# List with `uv run poe`. The paid steps never run as a side effect of the
+# replays: part1 and part2 only read what the record steps wrote.
+[tool.poe.groups.free]
+heading = "Replay and test: free, no model calls"
+
+[tool.poe.groups.free.tasks]
+part1 = { cmd = "python part1.py", help = "Replay Part 1: single-call routers" }
+part2 = { cmd = "python part2.py", help = "Replay Part 2: team strategies" }
+test = { cmd = "pytest", help = "Run the tests" }
+
+[tool.poe.groups.paid]
+heading = "Record: slow; collect and judge make paid model calls"
+
+[tool.poe.groups.paid.tasks]
+fetch = { cmd = "python -m scripts.fetch_verilog_eval", help = "Download the VerilogEval problems" }
+collect = { cmd = "python -m scripts.collect", help = "Record model attempts (paid calls)" }
+check = { cmd = "python -m scripts.check_attempts", help = "Compile and compare every recorded design" }
+judge = { cmd = "python -m scripts.collect_judgements", help = "Record judgements (paid calls)" }
+record = { sequence = ["collect", "check", "judge"], help = "Record everything, in order (paid calls; skips what is recorded)" }
+
 [dependency-groups]
 dev = [
+    "poethepoet>=0.49.0",
     "pytest>=9.1.1",
 ]

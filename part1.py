@@ -34,7 +34,7 @@ def main() -> None:
     features = embed(tasks)
 
     print("Replaying recorded calls and verdicts from data/attempts.jsonl: no model calls.")
-    print("To record new calls: uv run python -m scripts.collect\n")
+    print("To record new calls: uv run poe collect\n")
     print(f"{len(tasks)} problems, {len(attempts)} attempts, ${dollars:.4f} budget\n")
     print(f"{'model':<10}{'pass rate':>10}{'mean cost':>12}{'cap':>10}")
     for m in MODELS:

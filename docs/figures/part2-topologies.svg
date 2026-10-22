@@ -1,0 +1,240 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 878" width="980" height="878" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <style>
+    svg { --bg: #ffffff; --panel: #f6f8fa; --line: #d0d7de; --fg: #1f2328; --soft: #57606a; --muted: #59636e; --good: #1a7f37; }
+    @media (prefers-color-scheme: dark) {
+      svg { --bg: #0d1117; --panel: #161b22; --line: #3d444d; --fg: #e6edf3; --soft: #9198a1; --muted: #9198a1; --good: #3fb950; }
+    }
+    .bg { fill: var(--bg); }
+    .panel { fill: var(--panel); stroke: var(--line); stroke-width: 1; }
+    .untested { stroke-dasharray: 6 4; }
+    .best { stroke: var(--good); stroke-width: 2.5; }
+    text { fill: var(--fg); }
+    .section { font-size: 13px; font-weight: 600; fill: var(--muted); letter-spacing: 0.04em; }
+    .section tspan { font-weight: 400; letter-spacing: 0; }
+    .title { font-size: 15px; font-weight: 600; }
+    .sub { font-size: 12px; fill: var(--muted); }
+    .res { font-size: 12.5px; }
+    .note { font-size: 12.5px; fill: var(--muted); }
+    .good { fill: var(--good); font-weight: 600; }
+    .lbl { font-size: 11px; fill: var(--muted); }
+    .act { font-size: 12px; }
+    .edge { stroke: var(--soft); stroke-width: 1.5; fill: none; }
+    .dash { stroke-dasharray: 4 3; }
+    .head { fill: var(--soft); }
+    .check { fill: var(--bg); stroke: var(--soft); stroke-width: 1.5; }
+    .ctext { font-size: 12px; text-anchor: middle; }
+    .node text { fill: #ffffff; font-size: 13px; font-weight: 700; text-anchor: middle; }
+    .s { fill: #2da44e; }
+    .m { fill: #0969da; }
+    .f { fill: #8250df; }
+    .j { fill: #bf8700; }
+    .r { fill: #6e7781; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" class="head"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="980" height="878"/>
+
+  <text class="section" x="20" y="36">TESTED<tspan> · all but the single call are cascades: first attempt → check → on failure</tspan></text>
+
+  <!-- Single call -->
+  <g transform="translate(20,48)">
+    <rect class="panel" width="300" height="250" rx="8"/>
+    <text class="title" x="16" y="28">Single call</text>
+    <text class="sub" x="16" y="46">Part 1: one model per problem</text>
+    <text class="sub" x="16" y="104">spec</text>
+    <line class="edge" x1="46" y1="100" x2="72" y2="100" marker-end="url(#arrow)"/>
+    <g class="node"><circle class="m" cx="90" cy="100" r="16"/><text x="90" y="104.5">M</text></g>
+    <line class="edge" x1="106" y1="100" x2="146" y2="100" marker-end="url(#arrow)"/>
+    <text class="act" x="152" y="104">submit</text>
+    <text class="lbl" x="90" y="134" text-anchor="middle">any one model</text>
+    <text class="res" x="16" y="212">all-medium: 0.963 · $0.51</text>
+    <text class="note" x="16" y="232">all-frontier: 0.984 · $0.94, over budget</text>
+  </g>
+
+  <!-- Compile check -->
+  <g transform="translate(340,48)">
+    <rect class="panel" width="300" height="250" rx="8"/>
+    <text class="title" x="16" y="28">Compile check</text>
+    <text class="sub" x="16" y="46">Escalate when the design won't compile</text>
+    <g class="node"><circle class="s" cx="40" cy="100" r="16"/><text x="40" y="104.5">S</text></g>
+    <line class="edge" x1="56" y1="100" x2="93" y2="100" marker-end="url(#arrow)"/>
+    <polygon class="check" points="95,100 140,74 185,100 140,126"/>
+    <text class="ctext" x="140" y="104">compiles?</text>
+    <line class="edge" x1="185" y1="100" x2="228" y2="100" marker-end="url(#arrow)"/>
+    <text class="lbl" x="207" y="90" text-anchor="middle">yes · 97%</text>
+    <text class="act" x="234" y="104">submit</text>
+    <line class="edge" x1="140" y1="126" x2="140" y2="152" marker-end="url(#arrow)"/>
+    <text class="lbl" x="148" y="143">no · 3%</text>
+    <g class="node"><circle class="f" cx="140" cy="170" r="16"/><text x="140" y="174.5">F</text></g>
+    <line class="edge" x1="156" y1="170" x2="228" y2="170" marker-end="url(#arrow)"/>
+    <text class="act" x="234" y="174">submit</text>
+    <text class="res" x="16" y="212">0.961 · $0.13</text>
+  </g>
+
+  <!-- Agreement -->
+  <g transform="translate(660,48)">
+    <rect class="panel best" width="300" height="250" rx="8"/>
+    <text class="title" x="16" y="28">Agreement</text>
+    <text class="sub" x="16" y="46">Compare two small designs by simulation</text>
+    <g class="node"><circle class="s" cx="40" cy="75" r="16"/><text x="40" y="79.5">S</text></g>
+    <g class="node"><circle class="s" cx="40" cy="125" r="16"/><text x="40" y="129.5">S</text></g>
+    <line class="edge" x1="54.6" y1="81.6" x2="93" y2="99" marker-end="url(#arrow)"/>
+    <line class="edge" x1="54.6" y1="118.4" x2="93" y2="101" marker-end="url(#arrow)"/>
+    <polygon class="check" points="95,100 140,74 185,100 140,126"/>
+    <text class="ctext" x="140" y="104">agree?</text>
+    <line class="edge" x1="185" y1="100" x2="228" y2="100" marker-end="url(#arrow)"/>
+    <text class="lbl" x="207" y="90" text-anchor="middle">yes · 90%</text>
+    <text class="act" x="234" y="104">submit</text>
+    <line class="edge" x1="140" y1="126" x2="140" y2="152" marker-end="url(#arrow)"/>
+    <text class="lbl" x="148" y="143">no · 10%</text>
+    <g class="node"><circle class="f" cx="140" cy="170" r="16"/><text x="140" y="174.5">F</text></g>
+    <line class="edge" x1="156" y1="170" x2="228" y2="170" marker-end="url(#arrow)"/>
+    <text class="act" x="234" y="174">submit</text>
+    <text class="res" x="16" y="212">0.981 · $0.33</text>
+    <text class="good" font-size="12.5" x="16" y="232">★ best within budget</text>
+  </g>
+
+  <!-- Bigger teams -->
+  <g transform="translate(20,318)">
+    <rect class="panel" width="300" height="250" rx="8"/>
+    <text class="title" x="16" y="28">Bigger teams</text>
+    <text class="sub" x="16" y="46">Three designs; any two that agree win</text>
+    <g class="node"><circle class="s" cx="36" cy="66" r="15"/><text x="36" y="70.5">S</text></g>
+    <g class="node"><circle class="s" cx="36" cy="100" r="15"/><text x="36" y="104.5">S</text></g>
+    <g class="node"><circle class="r" cx="36" cy="134" r="15"/><text x="36" y="138" font-size="10">S/M</text></g>
+    <line class="edge" x1="49" y1="74" x2="93" y2="99" marker-end="url(#arrow)"/>
+    <line class="edge" x1="51" y1="100" x2="93" y2="100" marker-end="url(#arrow)"/>
+    <line class="edge" x1="49" y1="126" x2="93" y2="101" marker-end="url(#arrow)"/>
+    <polygon class="check" points="95,100 140,74 185,100 140,126"/>
+    <text class="ctext" x="140" y="104">2 agree?</text>
+    <line class="edge" x1="185" y1="100" x2="228" y2="100" marker-end="url(#arrow)"/>
+    <text class="lbl" x="207" y="90" text-anchor="middle">yes</text>
+    <text class="act" x="234" y="104">submit</text>
+    <line class="edge" x1="140" y1="126" x2="140" y2="152" marker-end="url(#arrow)"/>
+    <text class="lbl" x="148" y="143">no</text>
+    <g class="node"><circle class="f" cx="140" cy="170" r="16"/><text x="140" y="174.5">F</text></g>
+    <line class="edge" x1="156" y1="170" x2="228" y2="170" marker-end="url(#arrow)"/>
+    <text class="act" x="234" y="174">submit</text>
+    <text class="res" x="16" y="212">3 small: 0.975 · $0.31</text>
+    <text class="res" x="16" y="232">small + medium: 0.958 · $0.51</text>
+  </g>
+
+  <!-- Judge -->
+  <g transform="translate(340,318)">
+    <rect class="panel" width="300" height="250" rx="8"/>
+    <text class="title" x="16" y="28">Judge</text>
+    <text class="sub" x="16" y="46">A model settles disagreements</text>
+    <g class="node"><circle class="s" cx="40" cy="75" r="16"/><text x="40" y="79.5">S</text></g>
+    <g class="node"><circle class="s" cx="40" cy="125" r="16"/><text x="40" y="129.5">S</text></g>
+    <line class="edge" x1="54.6" y1="81.6" x2="93" y2="99" marker-end="url(#arrow)"/>
+    <line class="edge" x1="54.6" y1="118.4" x2="93" y2="101" marker-end="url(#arrow)"/>
+    <polygon class="check" points="95,100 140,74 185,100 140,126"/>
+    <text class="ctext" x="140" y="104">agree?</text>
+    <line class="edge" x1="185" y1="100" x2="228" y2="100" marker-end="url(#arrow)"/>
+    <text class="lbl" x="207" y="90" text-anchor="middle">yes · 90%</text>
+    <text class="act" x="234" y="104">submit</text>
+    <line class="edge" x1="140" y1="126" x2="140" y2="152" marker-end="url(#arrow)"/>
+    <text class="lbl" x="132" y="143" text-anchor="end">no · 10%</text>
+    <text class="lbl" x="148" y="143">A, B + counterexample</text>
+    <g class="node"><circle class="j" cx="140" cy="170" r="16"/><text x="140" y="174.5">J</text></g>
+    <line class="edge" x1="156" y1="170" x2="228" y2="170" marker-end="url(#arrow)"/>
+    <text class="act" x="234" y="174">submit</text>
+    <text class="res" x="16" y="212">frontier judge: 0.978 · $0.42</text>
+    <text class="res" x="16" y="232">medium judge: 0.971 · $0.30</text>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(660,318)">
+    <rect class="panel" width="300" height="250" rx="8"/>
+    <text class="title" x="16" y="28">Legend</text>
+    <g class="node"><circle class="s" cx="26" cy="56" r="10"/><text x="26" y="60" font-size="11">S</text></g>
+    <text class="act" x="44" y="60">small (Haiku)</text>
+    <g class="node"><circle class="m" cx="26" cy="80" r="10"/><text x="26" y="84" font-size="11">M</text></g>
+    <text class="act" x="44" y="84">medium (Sonnet)</text>
+    <g class="node"><circle class="f" cx="26" cy="104" r="10"/><text x="26" y="108" font-size="11">F</text></g>
+    <text class="act" x="44" y="108">frontier (Opus)</text>
+    <g class="node"><circle class="j" cx="26" cy="128" r="10"/><text x="26" y="132" font-size="11">J</text></g>
+    <text class="act" x="44" y="132">judge, any model size</text>
+    <g class="node"><circle class="r" cx="26" cy="152" r="10"/></g>
+    <text class="act" x="44" y="156">a role, any model size</text>
+    <polygon class="check" points="14,176 26,168 38,176 26,184"/>
+    <text class="act" x="44" y="180">a check run by code, not a model</text>
+    <rect class="panel" x="14" y="195" width="24" height="14" rx="3"/>
+    <text class="act" x="44" y="206">tested</text>
+    <rect class="panel untested" x="110" y="195" width="24" height="14" rx="3"/>
+    <text class="act" x="140" y="206">not tested</text>
+    <text class="act" x="16" y="232">Results: pass rate · spend. Budget $0.55.</text>
+  </g>
+
+  <text class="section" x="20" y="600">NOT TESTED YET<tspan> · repair loops, and routing decided by a model</tspan></text>
+
+  <!-- Debate -->
+  <g transform="translate(20,612)">
+    <rect class="panel untested" width="300" height="250" rx="8"/>
+    <text class="title" x="16" y="28">Debate</text>
+    <text class="sub" x="16" y="46">Designers trade work and revise</text>
+    <g class="node"><circle class="s" cx="40" cy="70" r="16"/><text x="40" y="74.5">S</text></g>
+    <g class="node"><circle class="s" cx="40" cy="130" r="16"/><text x="40" y="134.5">S</text></g>
+    <line class="edge" x1="34" y1="88" x2="34" y2="112" marker-end="url(#arrow)"/>
+    <line class="edge" x1="46" y1="112" x2="46" y2="88" marker-end="url(#arrow)"/>
+    <line class="edge" x1="54" y1="77.7" x2="93" y2="99" marker-end="url(#arrow)"/>
+    <line class="edge" x1="54" y1="122.3" x2="93" y2="101" marker-end="url(#arrow)"/>
+    <polygon class="check" points="95,100 140,74 185,100 140,126"/>
+    <text class="ctext" x="140" y="104">agree?</text>
+    <line class="edge" x1="185" y1="100" x2="228" y2="100" marker-end="url(#arrow)"/>
+    <text class="lbl" x="207" y="90" text-anchor="middle">yes</text>
+    <text class="act" x="234" y="104">submit</text>
+    <line class="edge" x1="140" y1="126" x2="140" y2="152" marker-end="url(#arrow)"/>
+    <text class="lbl" x="148" y="143">no, after N rounds</text>
+    <g class="node"><circle class="f" cx="140" cy="170" r="16"/><text x="140" y="174.5">F</text></g>
+    <line class="edge" x1="156" y1="170" x2="228" y2="170" marker-end="url(#arrow)"/>
+    <text class="act" x="234" y="174">submit</text>
+    <text class="lbl" x="12" y="166">see the other</text>
+    <text class="lbl" x="12" y="179">design, revise</text>
+    <text class="note" x="16" y="212">Closest data: one round by a</text>
+    <text class="note" x="16" y="232">small judge settles 0.767</text>
+  </g>
+
+  <!-- Role split -->
+  <g transform="translate(340,612)">
+    <rect class="panel untested" width="300" height="250" rx="8"/>
+    <text class="title" x="16" y="28">Role split</text>
+    <text class="sub" x="16" y="46">T writes tests, D writes the design</text>
+    <g class="node"><circle class="r" cx="40" cy="70" r="16"/><text x="40" y="74.5">T</text></g>
+    <g class="node"><circle class="r" cx="40" cy="130" r="16"/><text x="40" y="134.5">D</text></g>
+    <line class="edge" x1="54" y1="77.7" x2="93" y2="99" marker-end="url(#arrow)"/>
+    <line class="edge" x1="54" y1="122.3" x2="93" y2="101" marker-end="url(#arrow)"/>
+    <polygon class="check" points="95,100 140,74 185,100 140,126"/>
+    <text class="ctext" x="140" y="104">passes?</text>
+    <line class="edge" x1="185" y1="100" x2="228" y2="100" marker-end="url(#arrow)"/>
+    <text class="lbl" x="207" y="90" text-anchor="middle">yes</text>
+    <text class="act" x="234" y="104">submit</text>
+    <path class="edge" d="M140,126 V170 H40 V148" marker-end="url(#arrow)"/>
+    <text class="lbl" x="148" y="150">no: D fixes it</text>
+    <text class="note" x="16" y="212">Aims at shared misreadings:</text>
+    <text class="note" x="16" y="232">tester and designer err differently</text>
+  </g>
+
+  <!-- Lead agent -->
+  <g transform="translate(660,612)">
+    <rect class="panel untested" width="300" height="250" rx="8"/>
+    <text class="title" x="16" y="28">Lead agent</text>
+    <text class="sub" x="16" y="46">A model decides whom to call</text>
+    <g class="node"><circle class="r" cx="55" cy="100" r="18"/><text x="55" y="104.5">L</text></g>
+    <line class="edge dash" x1="72.4" y1="95.2" x2="182.6" y2="64.8" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <line class="edge dash" x1="73" y1="100" x2="182" y2="100" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <line class="edge dash" x1="72.4" y1="104.8" x2="182.6" y2="135.2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <g class="node"><circle class="s" cx="200" cy="60" r="16"/><text x="200" y="64.5">S</text></g>
+    <g class="node"><circle class="m" cx="200" cy="100" r="16"/><text x="200" y="104.5">M</text></g>
+    <g class="node"><circle class="f" cx="200" cy="140" r="16"/><text x="200" y="144.5">F</text></g>
+    <text class="lbl" x="112" y="68" text-anchor="middle">spawns, reads replies</text>
+    <line class="edge" x1="55" y1="118" x2="55" y2="150" marker-end="url(#arrow)"/>
+    <text class="act" x="55" y="168" text-anchor="middle">submit</text>
+    <text class="note" x="16" y="212">Routing by tool calls, not code.</text>
+    <text class="note" x="16" y="232">Judges suggest caution.</text>
+  </g>
+</svg>

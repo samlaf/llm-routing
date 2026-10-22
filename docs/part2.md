@@ -29,7 +29,7 @@ quadrantChart
     all small: [0.06, 0.08]
     all medium: [0.46, 0.55]
     all frontier, over budget: [0.85, 0.90]
-    compile cascade: [0.12, 0.52]
+    compile check: [0.12, 0.52]
     agree small x2: [0.30, 0.85]
     agree small x3: [0.28, 0.75]
     agree with medium: [0.46, 0.46]
@@ -38,81 +38,9 @@ quadrantChart
     judge frontier: [0.38, 0.80]
 ```
 
-### H1: a cheap first attempt, then escalate on a failed check
+How each strategy arranges its agents, with its result. The bottom row shows designs we have not tested.
 
-```mermaid
-flowchart LR
-    P([problem]) --> S[small writes a design]
-    S --> C{compiles?}
-    C -- "yes · 97%<br/>passes 0.960" --> OK([submit it])
-    C -- "no · 3%<br/>always fails" --> F[frontier writes<br/>a fresh design] --> OK2([submit it])
-```
-
-```mermaid
-flowchart LR
-    P([problem]) --> A[small writes design A] & B[small writes design B]
-    A & B --> D{"same outputs on<br/>random inputs?"}
-    D -- "yes · 90%<br/>A passes 0.984" --> OK([submit A])
-    D -- "no · 10%" --> F["frontier writes<br/>a fresh design<br/>passes 0.94"] --> OK2([submit it])
-```
-
-| strategy | pass rate | spent | rounds |
-|---|---|---|---|
-| all-medium (Part 1's best) | 0.963 | $0.51 | 1.00 |
-| *all-frontier (over budget)* | *0.984* | *$0.94* | *1.00* |
-| compile cascade | 0.961 | $0.13 | 1.03 |
-| **agreement, small × 2** | **0.981** | **$0.33** | 1.10 |
-
-**Holds.** Agreement beats the best single call at 60% of the budget. The compile check matches it at a quarter of the budget.
-
-### H1b: bigger teams in parallel
-
-Calls that every problem needs cost the same in parallel. Calls that only some problems need are cheaper in sequence.
-
-```mermaid
-flowchart LR
-    subgraph seq["Sequential: pay for frontier only on disagreements"]
-        direction LR
-        P1([problem]) --> S1["small × 2<br/>at once"] --> D1{agree?}
-        D1 -- "no · 10%" --> F1[frontier]
-    end
-    subgraph par["Parallel: pay for medium on every problem"]
-        direction LR
-        P2([problem]) --> X{"team fits<br/>the budget?"}
-        X -- yes --> S2["small + medium<br/>at once"] --> D2{agree?}
-        D2 -- "no · 9%" --> F2[frontier]
-        X -- "no · late problems" --> L["small, then medium<br/>while money lasts;<br/>no check"]
-    end
-```
-
-| strategy | pass rate | spent | rounds |
-|---|---|---|---|
-| **small × 2** | **0.981** | **$0.33** | 1.10 |
-| small × 3 | 0.975 | $0.31 | 1.05 |
-| small + medium | 0.958 | $0.51 | 1.27 |
-| small × 2 + medium | 0.957 | $0.51 | 1.33 |
-
-**Partly holds.** A third small design adds more pairs that agree on a wrong answer. Adding medium runs out of money.
-
-### H1c: a judge settles a disagreement
-
-```mermaid
-flowchart LR
-    P([problem]) --> A[small writes design A] & B[small writes design B]
-    A & B --> D{agree?}
-    D -- "yes · 90%" --> OK([submit A])
-    D -- "no · 10%" --> J["a judge sees the spec,<br/>A, B and a counterexample,<br/>and writes the design"]
-    J --> OK2([submit it])
-```
-
-| who settles a disagreement | pass rate on the 103 disagreements | cost per disagreement | pass rate on the whole stream |
-|---|---|---|---|
-| **fresh frontier design (H1)** | **0.942** | **$0.013** | **0.981** |
-| frontier judge | 0.932 | $0.022 | 0.978 |
-| medium judge | 0.854 | $0.012 | 0.971 |
-| small judge | 0.767 | $0.0013 | 0.953 |
-
-**Refuted.** Cheap judges lose accuracy. A frontier judge costs more than a fresh frontier design and passes less often.
+![Agent topologies for each Part 2 strategy, with results](figures/part2-topologies.svg)
 
 ## The setting
 
@@ -142,14 +70,18 @@ The **differential test** builds its own testbench from the spec's port list, ne
 
 ## Strategies
 
-| | strategy | calls | rounds |
-|---|---|---|---|
-| S0 | **Single call**: Part 1's baselines | 1 | 1 |
-| S1 | **Compile cascade**: small writes a design; escalate to frontier if it doesn't compile | 1–2 | 1–2 |
-| S2 | **Agreement**: 2–3 agents write designs at once; submit one that another agrees with, preferring the biggest model's; with no agreement, escalate to frontier | 2–4 | 1–2 |
-| S3 | **Judge**: two small designs at once; if they disagree, a judge sees the spec, both designs and the counterexample, and writes the design to submit | 2–3 | 1–2 |
+Every strategy but S0 is a *cascade* (see [math-model.md](math-model.md)): a first attempt, a check, and something to do when the check fails. They differ only in what fills each slot.
 
-"Escalate" means a fresh call to the best model the budget allows: frontier, else medium.
+| | strategy | first attempt | check | on failure |
+|---|---|---|---|---|
+| S0 | **Single call** (Part 1's baselines) | 1 model | none | — |
+| S1 | **Compile check** | 1 small | compiles? | escalate |
+| S2 | **Agreement** | 2 small, at once | agree? | escalate |
+| S2 | **Bigger teams** | 3 designs, small or medium, at once | do any 2 agree? | escalate |
+| S3 | **Judge** | 2 small, at once | agree? | a judge sees the spec, both designs and the counterexample, and writes the design |
+
+- **Agree** means both designs compile and give the same outputs on the differential test. When several designs agree, the team submits the biggest model's.
+- **Escalate** means a fresh call to the best model the budget allows: frontier, else medium.
 
 ## Hypotheses and verdicts
 
@@ -187,14 +119,14 @@ How well each check predicts the grader, over all recorded designs. For the diff
 
 ## Results: strategies
 
-`uv run python part2.py`: 150 problems, $0.55 budget, 50 shuffled streams.
+`uv run poe part2`: 150 problems, $0.55 budget, 50 shuffled streams.
 
 | strategy | pass rate | spent | calls per problem | rounds per problem |
 |---|---|---|---|---|
 | all-small | 0.935 ± 0.009 | $0.07 | 1.00 | 1.00 |
 | all-medium (Part 1's best) | 0.963 ± 0.011 | $0.51 | 1.00 | 1.00 |
 | *all-frontier (over budget)* | *0.984 ± 0.003* | *$0.94* | *1.00* | *1.00* |
-| S1: compile cascade | 0.961 ± 0.008 | $0.13 | 1.03 | 1.03 |
+| S1: compile check | 0.961 ± 0.008 | $0.13 | 1.03 | 1.03 |
 | **S2: agreement, small × 2** | **0.981 ± 0.005** | **$0.33** | 2.10 | 1.10 |
 | S2: agreement, small × 3 | 0.975 ± 0.007 | $0.31 | 3.05 | 1.05 |
 | S2: agreement, small + medium | 0.958 ± 0.012 | $0.51 | 1.76 | 1.27 |
@@ -290,6 +222,6 @@ flowchart LR
 | Teams and strategies | `routing/teams.py` |
 | Comparison | `part2.py` |
 
-Run `uv run python part2.py`. Test with `uv run pytest`.
+Run `uv run poe part2`. Test with `uv run poe test`.
 
 Splitting designs into modules (H2) and cheap readers for EDA reports (H3) are in [part3.md](part3.md).

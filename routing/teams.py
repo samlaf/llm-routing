@@ -90,7 +90,7 @@ class Single:
 
 
 @dataclass
-class CompileCascade:
+class CompileCheck:
     """Small writes a design; escalate if it doesn't compile."""
 
     def solve(self, team: Team, checker: Checker) -> str:

@@ -7,7 +7,7 @@ from routing.tasks import Task, Verifier
 from routing.teams import (
     Adjudication,
     Agreement,
-    CompileCascade,
+    CompileCheck,
     Single,
     Team,
     run_team_episode,
@@ -61,15 +61,15 @@ def test_single_steps_down_when_the_budget_is_short():
     assert t.calls == ["small"]
 
 
-def test_compile_cascade_escalates_only_on_a_broken_design():
+def test_compile_check_escalates_only_on_a_broken_design():
     ok = Checker({"t": "spec"}, {"right": True, "right_too": True, "wrong": True})
     t = team()
-    CompileCascade().solve(t, ok)
+    CompileCheck().solve(t, ok)
     assert t.calls == ["small"]
 
     broken = Checker({"t": "spec"}, {"right": False, "right_too": False, "wrong": False})
     t = team()
-    assert CompileCascade().solve(t, broken) == "best"
+    assert CompileCheck().solve(t, broken) == "best"
     assert t.calls == ["small", "frontier"]
 
 
