@@ -7,7 +7,7 @@ so it costs and scores what a live call did, without making one.
 import json
 import random
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import mean
 from typing import Protocol
@@ -92,12 +92,26 @@ def mean_costs(attempts: list[Attempt]) -> dict[str, dict[str, float]]:
 
 @dataclass
 class ReplayModel:
+    """Answers with recorded attempts, never the same one twice per problem.
+
+    Repeated calls to a model are independent samples, so a model can't agree
+    with itself by replaying one attempt twice.
+    """
+
     name: str
     attempts: dict[str, list[Attempt]]
     rng: random.Random
+    used: dict[str, set[int]] = field(default_factory=lambda: defaultdict(set))
 
     def answer(self, task: Task) -> Answer:
-        attempt = self.rng.choice(self.attempts[task.id])
+        fresh = [
+            i for i in range(len(self.attempts[task.id])) if i not in self.used[task.id]
+        ]
+        if not fresh:
+            raise ValueError(f"no unused attempt of {self.name} on {task.id}")
+        i = self.rng.choice(fresh)
+        self.used[task.id].add(i)
+        attempt = self.attempts[task.id][i]
         return Answer(attempt.code, attempt.cost)
 
 

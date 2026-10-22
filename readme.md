@@ -22,14 +22,15 @@ Optimize:
 ## Part 2
 
 Same as part 1, but allowed to call multiple models in parallel
-16 concurrent agents that can communicate
+up to 4 concurrent agents per problem, which can communicate
 same total budget
 
 ## Docs
 
 - [math-model.md](math-model.md): the model, theory and architecture.
 - [part1.md](part1.md): Part 1 on VerilogEval: problem, hypothesis, method, status.
-- [part2.md](part2.md): Part 2 on RTL: grader vs checks, hypotheses H1–H3, open questions.
+- [part2.md](part2.md): Part 2: teams of up to 4 agents per problem (cascades, agreement, judges), with conclusions.
+- [part3.md](part3.md): Part 3: splitting multi-module designs across agents (H2), and cheap readers for EDA reports (H3).
 - [references.md](references.md): every source, with what it says and why it matters here.
 
-Run: `uv run main.py`. Test: `uv run pytest`.
+Run: `uv run python part1.py`, `uv run python part2.py`. Test: `uv run pytest`.

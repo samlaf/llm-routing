@@ -26,10 +26,19 @@ def test_tables_average_over_attempts():
 
 
 def test_replay_answers_with_a_recorded_attempt():
-    model = replay_models(ATTEMPTS, seed=0)["small"]
-    answers = {model.answer(Task("t0", "spec")) for _ in range(50)}
-    assert {a.code for a in answers} == {"a", "b"}
+    answers = {
+        replay_models(ATTEMPTS, seed)["small"].answer(Task("t0", "spec"))
+        for seed in range(50)
+    }
     assert {(a.code, a.cost) for a in answers} == {("a", 0.1), ("b", 0.3)}
+
+
+def test_replay_never_repeats_an_attempt_within_an_episode():
+    model = replay_models(ATTEMPTS, seed=0)["small"]
+    task = Task("t0", "spec")
+    assert {model.answer(task).code, model.answer(task).code} == {"a", "b"}
+    with pytest.raises(ValueError):
+        model.answer(task)
 
 
 def test_replies_over_the_output_cap_fail_at_the_capped_cost(tmp_path):
@@ -58,6 +67,6 @@ def test_replies_over_the_output_cap_fail_at_the_capped_cost(tmp_path):
 def test_replay_is_deterministic_per_seed():
     def draws(seed):
         model = replay_models(ATTEMPTS, seed)["small"]
-        return [model.answer(Task("t0", "spec")).code for _ in range(20)]
+        return [model.answer(Task("t0", "spec")).code for _ in range(2)]
 
     assert draws(1) == draws(1)

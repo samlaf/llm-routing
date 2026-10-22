@@ -65,7 +65,7 @@ Why replay:
 
 ## Results
 
-`uv run python main.py`: 150 problems, 20 shuffled streams. "Expected" scores each choice by the model's estimated pass rate on that problem; "realized" counts the replayed verdicts.
+`uv run python part1.py`: 150 problems, 20 shuffled streams. "Expected" scores each choice by the model's estimated pass rate on that problem; "realized" counts the replayed verdicts.
 
 | model | pass rate | mean cost per call |
 |---|---|---|
@@ -129,6 +129,6 @@ The first version of Part 1 used 100 BoolQ true/false questions with simulated m
 | Routers: fixed, mix, plan-following, cluster | `routing/routers.py` |
 | Offline oracle, best fixed mix, text estimates | `routing/oracles.py` |
 | Spec embeddings (`bge-small-en-v1.5`), cached | `routing/features.py`, `data/verilog-eval.bge-small-en-v1.5.npz` |
-| Comparison | `main.py` |
+| Comparison | `part1.py` |
 
-Run `uv run python main.py`. Test with `uv run pytest`.
+Run `uv run python part1.py`. Test with `uv run pytest`.

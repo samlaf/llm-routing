@@ -100,6 +100,34 @@ Only the last part is the router's fault. The first is set by the featurizer and
 
 **Measuring.** Score a run by its expected passes $\sum_t p_{a_t}(x_t)$, not the verifier's draws $\sum_t y_t$. Both have the same mean, but the expected passes drop the noise of individual draws. With real models, $p_a(x)$ is estimated from several recorded attempts per (task, model).
 
+## Several calls per task
+
+A *strategy* replaces the single model choice. It calls models, runs checks on their outputs, and submits one output to the grader. The simplest shape is a cascade:
+
+1. Make a cheap first attempt, costing $c_1$. It may be several calls at once, such as two designs to compare.
+2. Run a check on it. The check accepts with probability $\alpha$, and accepted outputs pass with rate $q_{\text{acc}}$.
+3. On rejection, escalate. The escalation costs $c_{\text{esc}}$ and passes with rate $q_{\text{esc}}$ on the rejected tasks. It can be a fresh call to a bigger model, or a *judge*: a model shown the rejected attempts and the evidence against them, which writes the output to submit.
+
+Its value and expected cost per task are
+
+$$
+V = \alpha\, q_{\text{acc}} + (1 - \alpha)\, q_{\text{esc}},
+\qquad
+C = c_1 + (1 - \alpha)\, c_{\text{esc}} .
+$$
+
+A cascade beats a single call to model $a$ when $V \ge p_a$ and $C \le c_a$. Three things make that possible:
+
+- **A cheap first attempt.** A small model that solves most tasks keeps $c_1$ low.
+- **A sharp check.** $q_{\text{acc}}$ near 1, so accepted outputs are trustworthy, and a small $1 - \alpha$, so escalation is rare.
+- **Escalation where it's needed.** The rejected tasks are the hard ones, so $q_{\text{esc}}$ is lower than the escalation model's average.
+
+**Checks see what the text can't.** A pre-call router decides from $\phi(x)$ alone. A check decides after an attempt, so it can use the attempt itself. When the text predicts little (a weak text oracle), the attempt is where the signal is.
+
+**Correlated failures cap a check.** Two attempts that agree can still both be wrong if the models misread the task the same way. If $\beta$ is the probability that both are wrong *and* agree, then $\alpha\,(1 - q_{\text{acc}}) = \beta$. No amount of agreement among similar models removes $\beta$. Only a check whose errors are independent of the first attempt's can.
+
+**Parallel vs sequential.** Calls whose results are always needed (the two designs to compare) cost the same in parallel or in sequence, so running them together saves a round for free. Calls needed only sometimes (the escalation) are cheaper in sequence: in parallel, they are paid for on every task. Without a latency term in the objective, a strategy should parallelise only what it always needs.
+
 ## Architecture
 
 ```mermaid

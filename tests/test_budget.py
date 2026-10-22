@@ -32,4 +32,11 @@ def test_spend_charges_actual_cost():
     budget = Budget(dollars=1.0, tasks_left=2, caps=CAPS)
     budget.spend("medium", 0.2)
     assert budget.dollars == pytest.approx(0.8)
+    budget.next_task()
     assert budget.tasks_left == 1
+
+
+def test_a_round_of_calls_must_fit_together():
+    budget = Budget(dollars=1.0, tasks_left=1, caps=CAPS)
+    assert budget.can_afford("small", "medium")
+    assert not budget.can_afford("medium", "frontier")

@@ -28,6 +28,7 @@ def run_episode(
         name = router.choose(task, budget)
         answer = models[name].answer(task)
         budget.spend(name, answer.cost)
+        budget.next_task()
         passed = verifier.check(task.id, answer.code)
         router.update(task, name, passed)
 
