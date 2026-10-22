@@ -6,6 +6,7 @@ Three Claude models of different size and price (Haiku, Sonnet, Opus) solve a st
 
 - Part 1: routes each problem to one model.
 - Part 2: lets a team check a cheap first attempt before escalating (testing various cascade strategies)
+  - Check [part2.md](docs/part2.md) for surprising conclusions!
 - Part 3 (TODO): split larger designs across agents (requires another benchmark since VerilogEval is single module only)
 
 ![Overview: what each part tests, with results](docs/figures/overview.svg)
